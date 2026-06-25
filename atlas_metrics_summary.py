@@ -6,6 +6,8 @@ Example:
   python3 atlas_metrics_summary.py metrics.json --since "2026-06-22 12:00" --until "2026-06-22 12:08"
 """
 
+from __future__ import annotations
+
 import argparse
 import html
 import json
@@ -32,7 +34,7 @@ class Metric:
 
 
 METRICS = [
-    Metric("System pressure", "Max normalized system CPU", "process", "max-normalized-system-cpu", ("user", "kernel", "nice", "iowait", "irq", "softirq", "guest", "steal"), unit="%", warn=60, critical=80, note="Full host CPU, includes OS and mongod."),
+    Metric("System pressure", "Max normalized system CPU", "process", "max-normalized-system-cpu", ("user", "kernel", "nice", "iowait", "irq", "softirq", "guest", "steal"), stat="p99", unit="%", warn=60, critical=80, note="Full host CPU, includes OS and mongod."),
     Metric("System pressure", "Process CPU", "process", "normalized-process-cpu", ("user", "kernel"), unit="%", warn=60, critical=80, note="mongod process CPU."),
     Metric("System pressure", "Page faults", "status", "fixed-extra-info-page-faults-chart", ("page faults",), warn=1, critical=100),
     Metric("Memory", "Process resident memory", "status", "fixed-mem-chart", ("resident",), unit="MB", note="Physical memory used by mongod."),
@@ -54,7 +56,7 @@ METRICS = [
     Metric("Disk", "Disk queue depth", "disk", "disk-data-queue-depth-chart", ("disk queue depth",), warn=5, critical=20),
     Metric("Disk", "Disk free", "disk", "disk-data-space-percent-free-chart", ("percent disk space free",), stat="p5", unit="%", warn=20, critical=10, lower_is_bad=True),
     Metric("Disk", "Disk IOPS", "disk", "disk-data-iops-chart", ("read iops", "write iops"), unit="iops", note="Average IOPS."),
-    Metric("Disk", "Max disk IOPS", "disk", "max-disk-data-iops-chart", ("max read iops", "max write iops"), unit="iops", note="Peak IOPS; compare with average IOPS."),
+    Metric("Disk", "Max disk IOPS", "disk", "max-disk-data-iops-chart", ("max read iops", "max write iops"), stat="p99", unit="iops", note="Peak IOPS; compare with average IOPS."),
     Metric("Connections", "Current connections", "status", "fixed-connections-chart", ("current",)),
     Metric("Connections", "Connection creation rate", "status", "fixed-connection-rate-chart", ("connections created",), unit="/sec", warn=50, critical=200),
     Metric("Replication", "Replication lag", "status", "oplog-secondary-lag-master-time-chart", ("lag time",), unit="sec", warn=10, critical=60),
