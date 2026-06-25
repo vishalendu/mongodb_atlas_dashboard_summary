@@ -37,11 +37,11 @@ python atlas_metrics_summary.py metrics.json --since "2026-06-22 12:00" --until 
 
 **Output:** Lightweight HTML table report with Avg, P5, P95, P99, Max per metric.
 
-### `atlas_metrics_compare.py` (in `version/`)
+### `atlas_metrics_compare.py`
 Compare 2–3 time windows from a config JSON and produce a side-by-side comparison HTML report. Highlights status changes and metrics with >=10% change.
 
 ```bash
-python version/atlas_metrics_compare.py compare_config.json
+python atlas_metrics_compare.py compare_config.json
 ```
 
 **Config** (`compare_config.sample.json`):
