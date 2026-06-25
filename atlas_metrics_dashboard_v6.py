@@ -167,6 +167,8 @@ CHART_GROUPS = [
     },
 ]
 
+SPECIAL_TOTAL_CHARTS = {"Max Normalized System CPU %", "Max Disk IOPS"}
+
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -181,31 +183,53 @@ def fmt_val(v) -> str:
 
 
 def compute_stats(values):
-    """Return (avg, p95, p99) skipping None/NaN values."""
+    """Return (avg, p95, p99, max) skipping None/NaN values."""
     clean = [v for v in values if v is not None and not (isinstance(v, float) and math.isnan(v))]
     if not clean:
-        return None, None, None
+        return None, None, None, None
     clean.sort()
     n = len(clean)
     avg = sum(clean) / n
     p95 = clean[min(int(n * 0.95), n - 1)]
     p99 = clean[min(int(n * 0.99), n - 1)]
-    return avg, p95, p99
+    return avg, p95, p99, clean[-1]
+
+
+def point_totals(series_list):
+    max_len = max((len(s["values"]) for s in series_list), default=0)
+    totals = []
+    for i in range(max_len):
+        total = 0
+        found = False
+        for s in series_list:
+            values = s["values"]
+            if i >= len(values):
+                continue
+            value = values[i]
+            if value is None or (isinstance(value, float) and math.isnan(value)):
+                continue
+            total += value
+            found = True
+        if found:
+            totals.append(total)
+    return totals
 
 
 def make_summary_html(group_stats) -> str:
-    """Render a styled stats table for a group. group_stats = [(chart_title, series_label, avg, p95, p99)]."""
+    """Render a styled stats table for a group."""
     if not group_stats:
         return ""
 
     from collections import OrderedDict
     buckets: OrderedDict = OrderedDict()
-    for chart_title, series_label, avg, p95, p99 in group_stats:
-        buckets.setdefault(chart_title, []).append((series_label, avg, p95, p99))
+    for chart_title, series_label, avg, p95, p99, max_value, total_mode in group_stats:
+        buckets.setdefault(chart_title, []).append((series_label, avg, p95, p99, max_value, total_mode))
 
     rows = ""
     for chart_title, entries in buckets.items():
-        for series_label, avg, p95, p99 in entries:
+        normal_entries = [e for e in entries if not e[5]]
+        total_entries = [e for e in entries if e[5]]
+        for series_label, avg, p95, p99, max_value, _ in normal_entries:
             chart_attr = html.escape(str(chart_title), quote=True)
             series_attr = html.escape(str(series_label), quote=True)
             rows += (
@@ -215,31 +239,50 @@ def make_summary_html(group_stats) -> str:
                 f"<td data-stat='avg' style='color:#00ED64'>{fmt_val(avg)}</td>"
                 f"<td data-stat='p95' style='color:#F5A623'>{fmt_val(p95)}</td>"
                 f"<td data-stat='p99' style='color:#E74C3C'>{fmt_val(p99)}</td>"
+                f"<td data-stat='max' style='color:#38BDF8'>{fmt_val(max_value)}</td>"
                 f"</tr>\n"
             )
-        if len(entries) > 1:
-            tot_avg = sum(e[1] for e in entries if e[1] is not None)
-            tot_p95 = sum(e[2] for e in entries if e[2] is not None)
-            tot_p99 = sum(e[3] for e in entries if e[3] is not None)
+
+        for series_label, avg, p95, p99, max_value, total_mode in total_entries:
+            chart_attr = html.escape(str(chart_title), quote=True)
+            mode_attr = html.escape(str(total_mode), quote=True)
+            rows += (
+                f"<tr data-chart='{chart_attr}' data-total='1' data-total-mode='{mode_attr}' style='border-top:1px solid #2a3a4a;font-weight:bold'>"
+                f"<td>{html.escape(str(chart_title))}</td>"
+                f"<td style='color:#aabbcc'>{html.escape(str(series_label))}</td>"
+                f"<td data-stat='avg' style='color:#00ED64'>{fmt_val(avg)}</td>"
+                f"<td data-stat='p95' style='color:#F5A623'>{fmt_val(p95)}</td>"
+                f"<td data-stat='p99' style='color:#E74C3C'>{fmt_val(p99)}</td>"
+                f"<td data-stat='max' style='color:#38BDF8'>{fmt_val(max_value)}</td>"
+                f"</tr>\n"
+            )
+
+        if not total_entries and len(normal_entries) > 1:
+            tot_avg = sum(e[1] for e in normal_entries if e[1] is not None)
+            tot_p95 = sum(e[2] for e in normal_entries if e[2] is not None)
+            tot_p99 = sum(e[3] for e in normal_entries if e[3] is not None)
+            tot_max = sum(e[4] for e in normal_entries if e[4] is not None)
             chart_attr = html.escape(str(chart_title), quote=True)
             rows += (
-                f"<tr data-chart='{chart_attr}' data-total='1' style='border-top:1px solid #2a3a4a;font-weight:bold'>"
+                f"<tr data-chart='{chart_attr}' data-total='1' data-total-mode='series-sum' style='border-top:1px solid #2a3a4a;font-weight:bold'>"
                 f"<td>{html.escape(str(chart_title))}</td>"
                 f"<td style='color:#aabbcc'>Total</td>"
                 f"<td data-stat='avg' style='color:#00ED64'>{fmt_val(tot_avg)}</td>"
                 f"<td data-stat='p95' style='color:#F5A623'>{fmt_val(tot_p95)}</td>"
                 f"<td data-stat='p99' style='color:#E74C3C'>{fmt_val(tot_p99)}</td>"
+                f"<td data-stat='max' style='color:#38BDF8'>{fmt_val(tot_max)}</td>"
                 f"</tr>\n"
             )
 
     return (
-        '<div class="summary-label">Summary — Avg / P95 / P99</div>'
+        '<div class="summary-label">Summary — Avg / P95 / P99 / Max</div>'
         '<table class="summary-table">'
         "<thead><tr>"
         "<th>Chart</th><th>Series</th>"
         "<th style='color:#00ED64'>Avg</th>"
         "<th style='color:#F5A623'>P95</th>"
         "<th style='color:#E74C3C'>P99</th>"
+        "<th style='color:#38BDF8'>Max</th>"
         "</tr></thead>"
         f"<tbody>{rows}</tbody>"
         "</table>"
@@ -439,9 +482,13 @@ def build_dashboard(metrics_path: str, output_path: str, auto_open: bool = False
             figs_in_group.append(pio.to_html(fig, full_html=False, include_plotlyjs=False))
             total_charts += 1
             for s in series_list:
-                avg, p95, p99 = compute_stats(s["values"])
+                avg, p95, p99, max_value = compute_stats(s["values"])
                 if avg is not None:
-                    group_stats.append((display_title, s["label"], avg, p95, p99))
+                    group_stats.append((display_title, s["label"], avg, p95, p99, max_value, None))
+            if display_title in SPECIAL_TOTAL_CHARTS and len(series_list) > 1:
+                avg, p95, p99, max_value = compute_stats(point_totals(series_list))
+                if avg is not None:
+                    group_stats.append((display_title, "Total", avg, p95, p99, max_value, "point-sum"))
 
         if not figs_in_group:
             continue
@@ -628,13 +675,14 @@ def build_dashboard(metrics_path: str, output_path: str, auto_open: bool = False
     var clean = values.filter(function(v) {{
       return v != null && Number.isFinite(Number(v));
     }}).map(Number).sort(function(a, b) {{ return a - b; }});
-    if (!clean.length) return {{ avg: null, p95: null, p99: null }};
+    if (!clean.length) return {{ avg: null, p95: null, p99: null, max: null }};
     var n = clean.length;
     var avg = clean.reduce(function(a, b) {{ return a + b; }}, 0) / n;
     return {{
       avg: avg,
       p95: clean[Math.min(Math.floor(n * 0.95), n - 1)],
-      p99: clean[Math.min(Math.floor(n * 0.99), n - 1)]
+      p99: clean[Math.min(Math.floor(n * 0.99), n - 1)],
+      max: clean[n - 1]
     }};
   }}
 
@@ -686,9 +734,37 @@ def build_dashboard(metrics_path: str, output_path: str, auto_open: bool = False
     return computeStats(values);
   }}
 
+  function chartTotalStats(div, range) {{
+    var traces = div.data || [];
+    var firstTrace = traces[0] || {{}};
+    var xs = firstTrace.x || [];
+    var referenceDate = firstTraceDate(firstTrace);
+    var start = range ? axisValueToMs(range[0], referenceDate) : null;
+    var end = range ? axisValueToMs(range[1], referenceDate) : null;
+    var maxLen = traces.reduce(function(n, trace) {{
+      return Math.max(n, (trace.y || []).length);
+    }}, 0);
+    var values = [];
+    for (var i = 0; i < maxLen; i++) {{
+      var t = range ? axisValueToMs(xs[i], referenceDate) : null;
+      if (range && (start == null || end == null || t < start || t > end)) continue;
+      var total = 0;
+      var found = false;
+      traces.forEach(function(trace) {{
+        var y = (trace.y || [])[i];
+        if (y != null && Number.isFinite(Number(y))) {{
+          total += Number(y);
+          found = true;
+        }}
+      }});
+      if (found) values.push(total);
+    }}
+    return computeStats(values);
+  }}
+
   function setRowStats(row, stats) {{
     row._visibleStats = stats;
-    ['avg', 'p95', 'p99'].forEach(function(key) {{
+    ['avg', 'p95', 'p99', 'max'].forEach(function(key) {{
       var cell = row.querySelector('[data-stat="' + key + '"]');
       if (cell) cell.textContent = fmtVal(stats[key]);
     }});
@@ -712,15 +788,25 @@ def build_dashboard(metrics_path: str, output_path: str, auto_open: bool = False
           stats = traceStats(trace, range);
           return true;
         }});
-        setRowStats(row, stats || {{ avg: null, p95: null, p99: null }});
+        setRowStats(row, stats || {{ avg: null, p95: null, p99: null, max: null }});
       }});
 
       rows.filter(function(row) {{ return row.dataset.total; }}).forEach(function(row) {{
         var chart = row.dataset.chart;
-        var stats = {{ avg: 0, p95: 0, p99: 0 }};
+        var stats = null;
+        if (row.dataset.totalMode === 'point-sum') {{
+          divs.some(function(div) {{
+            var title = div.layout && div.layout.title;
+            title = title && (title.text || title);
+            if (String(title) !== chart) return false;
+            stats = chartTotalStats(div, range);
+            return true;
+          }});
+        }}
+        if (!stats) stats = {{ avg: 0, p95: 0, p99: 0, max: 0 }};
         rows.forEach(function(other) {{
-          if (other.dataset.total || other.dataset.chart !== chart || !other._visibleStats) return;
-          ['avg', 'p95', 'p99'].forEach(function(key) {{
+          if (row.dataset.totalMode === 'point-sum' || other.dataset.total || other.dataset.chart !== chart || !other._visibleStats) return;
+          ['avg', 'p95', 'p99', 'max'].forEach(function(key) {{
             if (other._visibleStats[key] != null) stats[key] += other._visibleStats[key];
           }});
         }});

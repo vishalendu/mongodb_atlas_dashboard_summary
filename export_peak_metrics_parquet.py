@@ -16,7 +16,7 @@ from pathlib import Path
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from atlas_metrics_summary import parse_time, ts_to_dt
+from atlas_metrics_core import parse_time, ts_to_dt
 
 
 CPU_SERIES = ("user", "kernel", "nice", "iowait", "irq", "softirq", "guest", "steal")

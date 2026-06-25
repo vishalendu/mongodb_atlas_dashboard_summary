@@ -12,7 +12,7 @@ import json
 import sys
 from pathlib import Path
 
-import atlas_metrics_summary as summary
+import atlas_metrics_core as summary
 
 
 STATUS_RANK = {"ok": 0, "info": 0, "warn": 1, "critical": 2}
