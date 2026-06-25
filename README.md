@@ -67,10 +67,28 @@ python atlas_metrics_compare.py compare_config.json
 
 **Output:** HTML with summary cards per window, important changes table, and per-section metric tables showing before/after/delta.
 
+### `export_peak_metrics_parquet.py`
+Export raw datapoints for peak metrics to Parquet for external inspection.
+
+```bash
+uv run python export_peak_metrics_parquet.py metrics.json \
+  --since "2026-06-22 11:58" \
+  --until "2026-06-22 12:12" \
+  --filename incident_1158_1212
+```
+
+**Output:**
+```text
+output/incident_1158_1212_max_normalized_system_cpu.parquet
+output/incident_1158_1212_max_disk_iops.parquet
+```
+
+Each file contains `timestamp_ms`, `timestamp_utc`, the source series columns, and a total column.
+
 ## Requirements
 
 ```
-pip install plotly
+uv sync
 ```
 
-Python 3.10+ recommended.
+Python 3.12+ recommended.
