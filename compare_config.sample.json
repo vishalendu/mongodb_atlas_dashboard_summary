@@ -1,0 +1,17 @@
+{
+  "output": "atlas_metrics_compare.html",
+  "windows": [
+    {
+      "name": "Test1",
+      "metrics_json": "metrics.json",
+      "since": "2026-06-22 10:53",
+      "until": "2026-06-22 11:06"
+    },
+    {
+      "name": "Test2",
+      "metrics_json": "metrics.json",
+      "since": "2026-06-22 11:58",
+      "until": "2026-06-22 12:12"
+    }
+  ]
+}
