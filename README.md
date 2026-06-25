@@ -5,7 +5,7 @@ Generate interactive dashboards, summary reports, and comparison reports from Mo
 ## Scripts
 
 ### `atlas_metrics_dashboard_v6.py`
-Interactive Plotly dashboard with all metric charts grouped by category. Includes linked zoom (zoom one chart, all sync), time window clipping, and summary tables (Avg / P95 / P99).
+Interactive Plotly dashboard with all metric charts grouped by category. Includes linked zoom (zoom one chart, all sync), time window clipping, and summary tables (Avg / P95 / P99 / Max).
 
 ```bash
 # full data range
@@ -83,7 +83,7 @@ output/incident_1158_1212_max_normalized_system_cpu.parquet
 output/incident_1158_1212_max_disk_iops.parquet
 ```
 
-Each file contains `timestamp_ms`, `timestamp_utc`, the source series columns, and a total column.
+Each file contains `timestamp_ms`, `timestamp_utc`, the source series columns, and a total column: `total_max_normalized_system_cpu` or `total_max_disk_iops`.
 
 ## Requirements
 
